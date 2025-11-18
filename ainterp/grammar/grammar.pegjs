@@ -37,9 +37,9 @@ string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"'
 
 distance_literal = number_literal ("km" / "m" / "mi" / "ft")
 
-number_literal = [1-9]? [0-9]*
+number_literal = [1-9] [0-9]*
 / "0"? "." [0-9]*
-/ [1-9]? [0-9]* "." [0-9]*
+/ [1-9] [0-9]* "." [0-9]*
 
 label = [a-zA-Z] [a-zA-Z0-9]*
 
