@@ -217,7 +217,7 @@ def addRelationConstituentNode(cur, relation_id, member_sequence, node_id, role)
 
 def addRelationConstituentWay(cur, relation_id, member_sequence, way_id, role):
     insertQuery = """
-    INSERT INTO relation_constituent_ways (relation_id, way_id, role)
+    INSERT INTO relation_constituent_ways (relation_id, member_sequence, way_id, role)
     VALUES (%s, %s, %s, %s)
     """
     
@@ -235,7 +235,7 @@ def addRelation(cur, element):
     nint(element.get("uid")), element.get("user"), booleanParser(element.get("visible")),
     nint(element.get("version")), nint(element.get("changeset"))))
     
-    seqeunceNumber = 1
+    sequenceNumber = 1
     
     for child in element:
         match child.tag:
