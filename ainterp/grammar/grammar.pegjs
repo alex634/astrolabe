@@ -33,15 +33,40 @@ literal = string_literal
 / distance_literal
 / float_literal
 
-string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' 
+string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' {
 
-distance_literal = number_literal ("km" / "m" / "mi" / "ft")
+}
 
-number_literal = [1-9] [0-9]*
-/ "0"? "." [0-9]*
-/ [1-9] [0-9]* "." [0-9]*
+distance_literal = number_literal ("km" / "m" / "mi" / "ft") {
+    return {value: match[0], unit: match[1]};
+}
 
-label = [a-zA-Z] [a-zA-Z0-9]*
+number_literal = [1-9] [0-9]* {
+    return {
+        type: "number_literal", 
+        value: parseFloat(match[0] + ((match[1] !== null) ? match[1].join(): ""))
+    };
+}
+/ "0"? "." [0-9]* {
+    let numberString = (match[0] !== null) ? match[0]: "";
+    numberString += ".";
+    numberString += (match[2] !== null) ? match[2].join(): "";
+    return {type: "number_literal", value: parseFloat(numberString)};
+}
+/ [1-9] [0-9]* "." [0-9]* {
+    let numberString = match[0];
+    numberString += (match[1] !== null) ? match[1].join(): "";
+    numberString += ".";
+    numberString += (match[3] !== null) ? match[3].join(): "";
+    return {type: "number_literal", value: parseFloat(numberString)};
+}
+
+label = [a-zA-Z] [a-zA-Z0-9]* {
+    return {
+        type: "label",
+        value: match[0] + ((match[1] !== null) ? match[1].join(): "")
+    };
+}
 
 whitespace = [ \t]
 
