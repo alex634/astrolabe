@@ -1,5 +1,5 @@
 {{
-    const functions = require('./functions.js');
+    const methods = require('./methods.js');
 }}
 
 start =
@@ -76,7 +76,17 @@ parameters = (whitespace* expression whitespace* ",")+ {
 // {type: "expression", variant: "literal", subvariant: "string_literal", value=""}
 // {type: "expression", variant: "method_call", value: "", tables: {nodes: "", ways: "", relations: ""}}
 expression = method_call {
-
+    return
+        {
+            type: "expression",
+            variant: "method_call",
+            value: match[0].value, 
+            tables: {
+                nodes: match[0].tables.nodes,
+                ways: match[0].tables.ways,
+                relations: match[0].tables.relations
+            }
+        };
 }
 / literal {
     return {type: "expression", variant: "literal", subvariant: match[0].variant, value: match[0].value};
@@ -94,8 +104,8 @@ method_call = label ("." label "(" parameters ")")* {
     };
 
     for (let call of match[1]) {
-        if (call[1].value in functions) {
-            methodObject = functions[call[1].value](methodObject, call[3].value);
+        if (call[1].value in methods) {
+            methods[call[1].value](methodObject, call[3].value);
         } else {
             console.error("Error: The method that was called does not exist");
             process.exit(1);
