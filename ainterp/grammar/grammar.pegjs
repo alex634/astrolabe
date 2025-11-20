@@ -1,6 +1,13 @@
+{{
+    const functions = require('./functions.js');
+}}
+
 start =
     statements !. {
-        return match[0].value;
+        const allVarDefinition = "CREATE VIEW _var_nodes_all AS SELECT * FROM nodes;\n";
+        allVarDefinition += "CREATE VIEW _var_ways_all AS SELECT * FROM ways;\n";
+        allVarDefinition += "CREATE VIEW _var_relations_all AS SELECT * FROM relations;\n";
+        return allVarDefinition + match[0].value;
     }
 
 statements = (statement)* {
@@ -53,18 +60,55 @@ expression_statement = whitespace* expression whitespace* line_ending {
     } 
 }
 
-parameters = (whitespace* expression whitespace* ",")*
-/ whitespace*
+// {type: "parameters", value: []}
+parameters = (whitespace* expression whitespace* ",")+ {
+    let value = [];
+    for (let current of match[0]) {
+        value.append(current[1]);
+    }
+
+    return {type: "parameters", value: value};
+}
+/ whitespace* {
+    return {type: "parameters", value: []};
+}
 
 // {type: "expression", variant: "literal", subvariant: "string_literal", value=""}
 // {type: "expression", variant: "method_call", value: "", tables: {nodes: "", ways: "", relations: ""}}
-expression = method_call
-/ literal
+expression = method_call {
 
-method_call = label ("." label "(" parameters ")"))*
+}
+/ literal {
+    return {type: "expression", variant: "literal", subvariant: match[0].variant, value: match[0].value};
+}
+
+method_call = label ("." label "(" parameters ")")* {
+    let methodObject = {
+        type: "n/a", 
+        value: "", 
+        tables:{
+            nodes:`_var_nodes_${match[0].value}`, 
+            ways: `_var_ways_${match[0].value}`,
+            relations: `_var_relations_${match[0].value}`
+        }
+    };
+
+    for (let call of match[1]) {
+        if (call[1].value in functions) {
+            methodObject = functions[call[1].value](methodObject, call[3].value);
+        } else {
+            console.error("Error: The method that was called does not exist");
+            process.exit(1);
+        }
+    }
+
+    return {type: "method_call", value: methodObject.value, tables: {nodes: methodObject.tables.nodes, ways: methodObject.tables.ways, relations: methodObject.tables.relations}};
+
+}
+
 
 literal = string_literal {
-    return {type: "literal", variant: "string_literal", value = match[0].value};
+    return {type: "literal", variant: "string_literal", value: match[0].value};
 }
 / distance_literal {
     return {
