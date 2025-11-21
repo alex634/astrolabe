@@ -3,15 +3,15 @@
 }}
 
 start =
-    statements !. {
-        const allVarDefinition = "CREATE VIEW _var_nodes_all AS SELECT * FROM nodes;\n";
+    stmts:statements !. {
+        let allVarDefinition = "CREATE VIEW _var_nodes_all AS SELECT * FROM nodes;\n";
         allVarDefinition += "CREATE VIEW _var_ways_all AS SELECT * FROM ways;\n";
         allVarDefinition += "CREATE VIEW _var_relations_all AS SELECT * FROM relations;\n";
-        return allVarDefinition + match[0].value;
+        return allVarDefinition + stmts.value;
     }
 
-statements = (statement)* {
-    const value = match.reduce((acc, statement) +> {
+statements = stmts:(statement)* {
+    const value = stmts.reduce((acc, statement) => {
         return acc + statement.value;
     },
     "");
@@ -19,17 +19,17 @@ statements = (statement)* {
     return {type: "statements", value: value};
 } 
 
-statement = comment_statement {
-    return {type: "statement", value: match[0].value};
+statement = comment:comment_statement {
+    return {type: "statement", value: comment.value};
 }
-/ declaration_statement {
-    return {type: "statement", value: match[0].value};
+/ declaration:declaration_statement {
+    return {type: "statement", value: declaration.value};
 }
-/ expression_statement {
-    return {type: "statement", value: match[0].value};
+/ expression:expression_statement {
+    return {type: "statement", value: expression.value};
 }
-/ blank_statement {
-    return {type: "statement", value: match[0].value};
+/ blank:blank_statement {
+    return {type: "statement", value: blank.value};
 }
 
 comment_statement = whitespace* "#" [^\r\n]* line_ending {
@@ -40,30 +40,30 @@ blank_statement = whitespace* line_ending {
     return {type: "blank_statement", value: ""};
 }
 
-declaration_statement = whitespace* "var" whitespace+ label whitespace* "=" whitespace* expression whitespace* line_ending {
-    if (match[7].variant === "literal") {
+declaration_statement = whitespace* "var" whitespace+ lbl:label whitespace* "=" whitespace* expr:expression whitespace* line_ending {
+    if (expr.variant === "literal") {
         console.error("Error: You may not declare a variable to be a literal. You can only store Nodes, Ways, and Relations in variables.");
         process.exit(1);
     }
     
-    const nodes = `CREATE VIEW _var_nodes_${match[3].value} AS SELECT * FROM ${match[7].tables.nodes};\n` 
-    const ways = `CREATE VIEW _var_ways_${match[3].value} AS SELECT * FROM ${match[7].tables.ways};\n`
-    const relations = `CREATE VIEW _var_relations_${match[3].value} AS SELECT * FROM ${match[7].tables.relations};\n`
+    const nodes = `CREATE VIEW _var_nodes_${lbl.value} AS SELECT * FROM ${expr.tables.nodes};\n` 
+    const ways = `CREATE VIEW _var_ways_${lbl.value} AS SELECT * FROM ${expr.tables.ways};\n`
+    const relations = `CREATE VIEW _var_relations_${lbl.value} AS SELECT * FROM ${expr.tables.relations};\n`
     
-    return {type: "declaration_statement", value: match[7].value + nodes + ways + relations};
+    return {type: "declaration_statement", value: expr.value + nodes + ways + relations};
 }
 
 
-expression_statement = whitespace* expression whitespace* line_ending {
-    if (match[1] === "method_call") {
-        return {type: "expression_statement",  value: match[1].value};
+expression_statement = whitespace* expr:expression whitespace* line_ending {
+    if (expr === "method_call") {
+        return {type: "expression_statement",  value: expr.value};
     } 
 }
 
 // {type: "parameters", value: []}
-parameters = (whitespace* expression whitespace* ",")+ {
+parameters = parms:(whitespace* expression whitespace* ",")+ {
     let value = [];
-    for (let current of match[0]) {
+    for (let current of parms) {
         value.append(current[1]);
     }
 
@@ -75,39 +75,38 @@ parameters = (whitespace* expression whitespace* ",")+ {
 
 // {type: "expression", variant: "literal", subvariant: "string_literal", value=""}
 // {type: "expression", variant: "method_call", value: "", tables: {nodes: "", ways: "", relations: ""}}
-expression = method_call {
-    return
-        {
+expression = method: method_call {
+    return {
             type: "expression",
             variant: "method_call",
-            value: match[0].value, 
+            value: method.value, 
             tables: {
-                nodes: match[0].tables.nodes,
-                ways: match[0].tables.ways,
-                relations: match[0].tables.relations
+                nodes: method.tables.nodes,
+                ways: method.tables.ways,
+                relations: method.tables.relations
             }
         };
 }
-/ literal {
-    return {type: "expression", variant: "literal", subvariant: match[0].variant, value: match[0].value};
+/ ltrl:literal {
+    return {type: "expression", variant: "literal", subvariant: ltrl.variant, value: ltrl.value};
 }
 
-method_call = label ("." label "(" parameters ")")* {
+method_call = variable:label calls:("." label "(" parameters ")")* {
     let methodObject = {
         type: "n/a", 
         value: "", 
         tables:{
-            nodes:`_var_nodes_${match[0].value}`, 
-            ways: `_var_ways_${match[0].value}`,
-            relations: `_var_relations_${match[0].value}`
+            nodes:`_var_nodes_${variable.value}`, 
+            ways: `_var_ways_${variable.value}`,
+            relations: `_var_relations_${variable.value}`
         }
     };
 
-    for (let call of match[1]) {
+    for (let call of calls) {
         if (call[1].value in methods) {
             methods[call[1].value](methodObject, call[3].value);
         } else {
-            console.error("Error: The method that was called does not exist");
+            console.error(`Error: The method that was called ${call[1].value} does not exist`);
             process.exit(1);
         }
     }
@@ -117,21 +116,21 @@ method_call = label ("." label "(" parameters ")")* {
 }
 
 
-literal = string_literal {
-    return {type: "literal", variant: "string_literal", value: match[0].value};
+literal = string:string_literal {
+    return {type: "literal", variant: "string_literal", value: string.value};
 }
-/ distance_literal {
+/ distance:distance_literal {
     return {
         type: "literal", variant: "distance_literal", 
-        value: match[0].value, unit: match[0].unit
+        value: distance.value, unit: distance.unit
     };
 }
-/ number_literal {
-    return {type: "literal", variant: "number_literal", value: match[0].value};
+/ number:number_literal {
+    return {type: "literal", variant: "number_literal", value: number.value};
 }
 
-string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' {
-    const processedValues = match[1].filter((value) => {
+string_literal = '"' string:([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' {
+    const processedValues = string.filter((value) => {
         switch(char) {
             case '\\\\':
                 return '\\';
@@ -148,40 +147,39 @@ string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' {
             default:
                 return value;
         }
-    };
+    });
 
-    return {type: "string_literal", value: processedValues.join()}; 
-    );
+    return {type: "string_literal", value: processedValues.join('')}; 
 }
 
-distance_literal = number_literal ("km" / "m" / "mi" / "ft") {
-    return {type: "distance_literal", value: match[0], unit: match[1]};
+distance_literal = number:number_literal unit:("km" / "m" / "mi" / "ft") {
+    return {type: "distance_literal", value: number, unit: unit};
 }
 
-number_literal = [1-9] [0-9]* {
+number_literal = leadingDigit:[1-9] remainingDigits:[0-9]* {
     return {
         type: "number_literal", 
-        value: parseFloat(match[0] + ((match[1] !== null) ? match[1].join(): ""))
+        value: parseFloat(leadingDigit + ((remainingDigits !== null) ? remainingDigits.join(''): ""))
     };
 }
-/ "0"? "." [0-9]* {
-    let numberString = (match[0] !== null) ? match[0]: "";
+/ leadingZero:"0"? "." postDecimalDigits:[0-9]* {
+    let numberString = (leadingZero !== null) ? leadingZero: "";
     numberString += ".";
-    numberString += (match[2] !== null) ? match[2].join(): "";
+    numberString += (postDecimalDigits !== null) ? postDecimalDigits.join(''): "";
     return {type: "number_literal", value: parseFloat(numberString)};
 }
-/ [1-9] [0-9]* "." [0-9]* {
-    let numberString = match[0];
-    numberString += (match[1] !== null) ? match[1].join(): "";
+/ leadingDigit:[1-9] remainingDigits:[0-9]* "." postDecimalDigits:[0-9]* {
+    let numberString = leadingDigit;
+    numberString += (remainingDigits !== null) ? remainingDigits.join(''): "";
     numberString += ".";
-    numberString += (match[3] !== null) ? match[3].join(): "";
+    numberString += (postDecimalDigits !== null) ? postDecimalDigits.join(''): "";
     return {type: "number_literal", value: parseFloat(numberString)};
 }
 
-label = [a-zA-Z] [a-zA-Z0-9]* {
+label = leadingChar:[a-zA-Z] remainingChars:[a-zA-Z0-9]* {
     return {
         type: "label",
-        value: match[0] + ((match[1] !== null) ? match[1].join(): "")
+        value: leadingChar + ((remainingChars !== null) ? remainingChars.join(''): "")
     };
 }
 

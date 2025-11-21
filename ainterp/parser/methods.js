@@ -1,5 +1,3 @@
-module.exports = methods;
-
 /*
  * Two variables are passed whenever a method is called: methodObject, and parameters.
  * methodObject is more or less the object that the method is being called on.
@@ -58,13 +56,13 @@ function generateName(type, methodName) {
 
     switch (type) {
         case "nodes":
-            return `_var_nodes_${method_name}_${ending}`;
+            return `_var_nodes_${methodName}_${ending}`;
         break;
         case "ways":
-            return `_var_ways_${method_name}_${ending}`;
+            return `_var_ways_${methodName}_${ending}`;
         break;
         case "relations":
-            return `_var_relations_${method_name}_${ending}`;
+            return `_var_relations_${methodName}_${ending}`;
         break;
     }
     
@@ -127,3 +125,5 @@ const methods = {
         methodObject.tables.relations = relationsName;
     }
 };
+
+module.exports = methods;
