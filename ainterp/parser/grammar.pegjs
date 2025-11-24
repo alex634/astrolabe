@@ -19,16 +19,17 @@ statements = stmts:(statement)* {
     return {type: "statements", value: value};
 } 
 
-statement = comment:comment_statement {
-    return {type: "statement", value: comment.value};
-}
-/ declaration:declaration_statement {
-    return {type: "statement", value: declaration.value};
-}
-/ expression:expression_statement {
+
+statement = expression:expression_statement {
     return {type: "statement", value: expression.value};
-}
-/ blank:blank_statement {
+
+} / declaration:declaration_statement {
+    return {type: "statement", value: declaration.value};
+
+} / comment:comment_statement {
+    return {type: "statement", value: comment.value};
+
+} / blank:blank_statement {
     return {type: "statement", value: blank.value};
 }
 
@@ -55,20 +56,21 @@ declaration_statement = whitespace* "var" whitespace+ lbl:label whitespace* "=" 
 
 
 expression_statement = whitespace* expr:expression whitespace* line_ending {
-    if (expr === "method_call") {
+    if (expr.variant === "method_call") {
         return {type: "expression_statement",  value: expr.value};
-    } 
+    }
+    return {type: "expression_statement", value: ""}; 
 }
 
 // {type: "parameters", value: []}
-parameters = parms:(whitespace* expression whitespace* ",")+ {
-    let value = [];
-    for (let current of parms) {
-        value.append(current[1]);
+parameters = whitespace* firstParm:expression whitespace*  restParms:("," whitespace* expression whitespace*)* {
+    let value = [firstParm];
+    for (let current of restParms) {
+        value.push(current[2]);
     }
 
     return {type: "parameters", value: value};
-}
+}  
 / whitespace* {
     return {type: "parameters", value: []};
 }
@@ -156,24 +158,26 @@ distance_literal = number:number_literal unit:("km" / "m" / "mi" / "ft") {
     return {type: "distance_literal", value: number, unit: unit};
 }
 
-number_literal = leadingDigit:[1-9] remainingDigits:[0-9]* {
-    return {
-        type: "number_literal", 
-        value: parseFloat(leadingDigit + ((remainingDigits !== null) ? remainingDigits.join(''): ""))
-    };
-}
-/ leadingZero:"0"? "." postDecimalDigits:[0-9]* {
-    let numberString = (leadingZero !== null) ? leadingZero: "";
+number_literal = sign:"-"? leadingZero:"0"? "." postDecimalDigits:[0-9]* {
+    let numberString = (sign !== null) ? sign: "";  
+    numberString += (leadingZero !== null) ? leadingZero: "";
     numberString += ".";
     numberString += (postDecimalDigits !== null) ? postDecimalDigits.join(''): "";
     return {type: "number_literal", value: parseFloat(numberString)};
 }
-/ leadingDigit:[1-9] remainingDigits:[0-9]* "." postDecimalDigits:[0-9]* {
-    let numberString = leadingDigit;
+/ sign:"-"? leadingDigit:[1-9] remainingDigits:[0-9]* "." postDecimalDigits:[0-9]* {
+    let numberString = (sign !== null) ? sign: "";  
+    numberString += leadingDigit;
     numberString += (remainingDigits !== null) ? remainingDigits.join(''): "";
     numberString += ".";
     numberString += (postDecimalDigits !== null) ? postDecimalDigits.join(''): "";
     return {type: "number_literal", value: parseFloat(numberString)};
+}
+/ sign:"-"? leadingDigit:[1-9] remainingDigits:[0-9]* {
+    return {
+        type: "number_literal", 
+        value: parseFloat(((sign !== null) ? sign: "") + leadingDigit + ((remainingDigits !== null) ? remainingDigits.join(''): ""))
+    };
 }
 
 label = leadingChar:[a-zA-Z] remainingChars:[a-zA-Z0-9]* {

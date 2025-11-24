@@ -123,6 +123,87 @@ const methods = {
         methodObject.tables.nodes = nodesName;
         methodObject.tables.ways = waysName;
         methodObject.tables.relations = relationsName;
+    },
+    output: function(methodObject, parameters) {
+        if (parameters.length > 0) {
+            console.error("Error: output method cannot accept parameters");
+            process.exit(1);
+        }
+
+        methodObject.value += `SELECT id, lat, lon, timestamp, uid, usr, visible, changeset, 'node' as type,
+FROM ${methodObject.tables.nodes}
+UNION ALL
+SELECT id, NULL as lat, NULL as lon, timestamp, uid, usr, visible, version, changeset, 'way' as type
+FROM ${methodObject.tables.ways}
+UNION ALL
+SELECT id, NULL as lat, NULL as lon, timestamp, uid, usr, visible, version, changeset, 'relation' as type
+FROM ${methodObject.tables.nodes};
+`
+    },
+    bbox: function(methodObject, parameters) {
+        if (parameters.length != 4) {
+            console.error("Error: 4 parameters were expected.");
+            process.exit(1);
+        }
+        for (const parameter of parameters) {
+            if (parameter.variant !== "literal" && parameter.subvariant !== "number_literal") {
+                console.error("Error: All 4 parameters must be numbers");
+                process.exit(1);
+            }
+        }
+
+        if (parameters[0].value < -90.0 || parameters[0].value > 90.0) {
+            console.error("Error: First value must be southern edge ([-90,90])");
+            process.exit(1);
+        }
+
+        if (parameters[1].value < -180.0 || parameters[1].value > 180) {
+            console.error("Error: First value must be western edge ([-180,180])");
+            process.exit(1);
+        }
+
+        
+        if (parameters[2].value < -90.0 || parameters[2].value > 90.0) {
+            console.error("Error: First value must be northern edge ([-90,90])");
+            process.exit(1);
+        }
+
+        if (parameters[3].value < -180.0 || parameters[3].value > 180) {
+            console.error("Error: First value must be eastern edge ([-180,180])");
+            process.exit(1);
+        }
+
+        const south = parameters[0].value;
+        const west = parameters[1].value;
+        const north = parameters[2].value;
+        const east = parameters[3].value;
+
+        const nodesName = generateName("nodes", "bbox");
+        const waysName = generateName("ways", "bbox");
+        const relationsName = generateName("relations", "bbox");
+
+        methodObject.value += `CREATE VIEW ${nodesName} AS SELECT * FROM nodes WHERE lat <= ${north} AND lat >= ${south} AND lon <= ${east} AND lat <= ${west};\n`;
+        methodObject.value += `CREATE VIEW ${waysName} AS
+SELECT * FROM ways
+WHERE id IN
+(SELECT UNIQUE way_constituent_nodes.way_id as way_id
+FROM ${nodesName}, way_constituent_nodes 
+WHERE ${nodesName}.id = way_constituent_nodes.node_id)\n;`;
+        
+        methodObject.value += `CREATE VIEW ${relationsName} AS
+SELECT * FROM relations
+WHERE id IN 
+(SELECT UNIQUE relation_constituent_nodes.relation_id AS relation_id 
+FROM ${nodesName}, relation_constituent_nodes
+WHERE ${nodesName}.id = relation_constituent_nodes.node_id)
+UNION
+SELECT UNIQUE relation_constituent_ways.relation_id as relation_id
+FROM ${waysName}, relation_constituent_ways
+WHERE ${waysName}.id = relation_constituent_ways.way_id);\n`;
+
+        methodObject.tables.nodes = nodesName;
+        methodObject.tables.ways = waysName;
+        methodObject.tables.relations = relationsName;
     }
 };
 
