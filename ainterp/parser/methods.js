@@ -80,9 +80,9 @@ const methods = {
         const waysName = generateName("ways", "ways");
         const relationsName = generateName("relations", "ways");        
 
-        methodObject.value += `CREATE VIEW ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes} WHERE 0 = 1;\n`
-        methodObject.value += `CREATE VIEW ${waysName} AS SELECT * FROM ${methodObject.tables.ways};\n`; 
-        methodObject.value += `CREATE VIEW ${relationsName} AS SELECT * FROM ${methodObject.tables.relations} WHERE 0 = 1;\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes} WHERE 0 = 1;\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${waysName} AS SELECT * FROM ${methodObject.tables.ways};\n`; 
+        methodObject.value += `CREATE TEMPORARY TABLE ${relationsName} AS SELECT * FROM ${methodObject.tables.relations} WHERE 0 = 1;\n`
 
         methodObject.tables.nodes = nodesName;
         methodObject.tables.ways = waysName;
@@ -98,9 +98,9 @@ const methods = {
         const waysName = generateName("ways", "nodes");
         const relationsName = generateName("relations", "nodes");        
 
-        methodObject.value += `CREATE VIEW ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes};\n`
-        methodObject.value += `CREATE VIEW ${waysName} AS SELECT * FROM ${methodObject.tables.ways} WHERE 0 = 1;\n`; 
-        methodObject.value += `CREATE VIEW ${relationsName} AS SELECT * FROM ${methodObject.tables.relations} WHERE 0 = 1;\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes};\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${waysName} AS SELECT * FROM ${methodObject.tables.ways} WHERE 0 = 1;\n`; 
+        methodObject.value += `CREATE TEMPORARY TABLE ${relationsName} AS SELECT * FROM ${methodObject.tables.relations} WHERE 0 = 1;\n`
 
         methodObject.tables.nodes = nodesName;
         methodObject.tables.ways = waysName;
@@ -116,9 +116,9 @@ const methods = {
         const waysName = generateName("ways", "relations");
         const relationsName = generateName("relations", "relations");        
 
-        methodObject.value += `CREATE VIEW ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes} WHERE 0 = 1;\n`
-        methodObject.value += `CREATE VIEW ${waysName} AS SELECT * FROM ${methodObject.tables.ways} WHERE 0 = 1;\n`; 
-        methodObject.value += `CREATE VIEW ${relationsName} AS SELECT * FROM ${methodObject.tables.relations};\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${nodesName} AS SELECT * FROM ${methodObject.tables.nodes} WHERE 0 = 1;\n`
+        methodObject.value += `CREATE TEMPORARY TABLE ${waysName} AS SELECT * FROM ${methodObject.tables.ways} WHERE 0 = 1;\n`; 
+        methodObject.value += `CREATE TEMPORARY TABLE ${relationsName} AS SELECT * FROM ${methodObject.tables.relations};\n`
 
         methodObject.tables.nodes = nodesName;
         methodObject.tables.ways = waysName;
@@ -130,7 +130,7 @@ const methods = {
             process.exit(1);
         }
 
-        methodObject.value += `SELECT id, lat, lon, timestamp, uid, usr, visible, changeset, 'node' as type,
+        methodObject.value += `SELECT id, lat, lon, timestamp, uid, usr, visible, version, changeset, 'node' as type
 FROM ${methodObject.tables.nodes}
 UNION ALL
 SELECT id, NULL as lat, NULL as lon, timestamp, uid, usr, visible, version, changeset, 'way' as type
@@ -182,22 +182,22 @@ FROM ${methodObject.tables.nodes};
         const waysName = generateName("ways", "bbox");
         const relationsName = generateName("relations", "bbox");
 
-        methodObject.value += `CREATE VIEW ${nodesName} AS SELECT * FROM nodes WHERE lat <= ${north} AND lat >= ${south} AND lon <= ${east} AND lat <= ${west};\n`;
-        methodObject.value += `CREATE VIEW ${waysName} AS
+        methodObject.value += `CREATE TEMPORARY TABLE ${nodesName} AS SELECT * FROM nodes WHERE lat <= ${north} AND lat >= ${south} AND lon <= ${east} AND lon >= ${west};\n`;
+        methodObject.value += `CREATE TEMPORARY TABLE ${waysName} AS
 SELECT * FROM ways
 WHERE id IN
-(SELECT UNIQUE way_constituent_nodes.way_id as way_id
+(SELECT DISTINCT way_constituent_nodes.way_id as way_id
 FROM ${nodesName}, way_constituent_nodes 
-WHERE ${nodesName}.id = way_constituent_nodes.node_id)\n;`;
+WHERE ${nodesName}.id = way_constituent_nodes.node_id);\n`;
         
-        methodObject.value += `CREATE VIEW ${relationsName} AS
+        methodObject.value += `CREATE TEMPORARY TABLE ${relationsName} AS
 SELECT * FROM relations
 WHERE id IN 
-(SELECT UNIQUE relation_constituent_nodes.relation_id AS relation_id 
+(SELECT DISTINCT relation_constituent_nodes.relation_id AS relation_id 
 FROM ${nodesName}, relation_constituent_nodes
-WHERE ${nodesName}.id = relation_constituent_nodes.node_id)
+WHERE ${nodesName}.id = relation_constituent_nodes.node_id
 UNION
-SELECT UNIQUE relation_constituent_ways.relation_id as relation_id
+SELECT DISTINCT relation_constituent_ways.relation_id as relation_id
 FROM ${waysName}, relation_constituent_ways
 WHERE ${waysName}.id = relation_constituent_ways.way_id);\n`;
 

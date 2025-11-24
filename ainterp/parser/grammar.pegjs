@@ -4,9 +4,9 @@
 
 start =
     stmts:statements !. {
-        let allVarDefinition = "CREATE VIEW _var_nodes_all AS SELECT * FROM nodes;\n";
-        allVarDefinition += "CREATE VIEW _var_ways_all AS SELECT * FROM ways;\n";
-        allVarDefinition += "CREATE VIEW _var_relations_all AS SELECT * FROM relations;\n";
+        let allVarDefinition = "CREATE TEMPORARY TABLE _var_nodes_all AS SELECT * FROM nodes;\n";
+        allVarDefinition += "CREATE TEMPORARY TABLE _var_ways_all AS SELECT * FROM ways;\n";
+        allVarDefinition += "CREATE TEMPORARY TABLE _var_relations_all AS SELECT * FROM relations;\n";
         return allVarDefinition + stmts.value;
     }
 
@@ -47,9 +47,9 @@ declaration_statement = whitespace* "var" whitespace+ lbl:label whitespace* "=" 
         process.exit(1);
     }
     
-    const nodes = `CREATE VIEW _var_nodes_${lbl.value} AS SELECT * FROM ${expr.tables.nodes};\n` 
-    const ways = `CREATE VIEW _var_ways_${lbl.value} AS SELECT * FROM ${expr.tables.ways};\n`
-    const relations = `CREATE VIEW _var_relations_${lbl.value} AS SELECT * FROM ${expr.tables.relations};\n`
+    const nodes = `CREATE TEMPORARY TABLE _var_nodes_${lbl.value} AS SELECT * FROM ${expr.tables.nodes};\n` 
+    const ways = `CREATE TEMPORARY TABLE _var_ways_${lbl.value} AS SELECT * FROM ${expr.tables.ways};\n`
+    const relations = `CREATE TEMPORARY TABLE _var_relations_${lbl.value} AS SELECT * FROM ${expr.tables.relations};\n`
     
     return {type: "declaration_statement", value: expr.value + nodes + ways + relations};
 }
