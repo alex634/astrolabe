@@ -137,7 +137,7 @@ SELECT id, NULL as lat, NULL as lon, timestamp, uid, usr, visible, version, chan
 FROM ${methodObject.tables.ways}
 UNION ALL
 SELECT id, NULL as lat, NULL as lon, timestamp, uid, usr, visible, version, changeset, 'relation' as type
-FROM ${methodObject.tables.nodes};
+FROM ${methodObject.tables.relations};
 `
     },
     bbox: function(methodObject, parameters) {
