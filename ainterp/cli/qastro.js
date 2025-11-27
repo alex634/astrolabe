@@ -2,9 +2,301 @@ const yargs = require('yargs');
 const {hideBin} = require('yargs/helpers');
 const parser = require('../parser/parser.js');
 const fs = require('fs');
+const {Pool} = require('pg');
+
+function getTimeString(date) {
+    return date.toISOString().split('.')[0]+ 'Z';
+}
+
+function decrementPendingActions(pendingActions, writeStream) {
+    pendingActions.actions -= 1;
+    if (pendingActions.actions === 0) {
+        writeStream.write("</osm>\n");
+        writeStream.end();
+        console.log("Closing output... Entirety of file was written.");
+        console.log("Program ending...");
+    }
+}
+
+async function writeNodeXML(row, pool, writeStream, pendingActions) {
+    let subElements = "";
+    let client;
+    let result;
+
+    try {
+        client = await pool.connect();
+        result = await client.query(`SELECT * FROM node_tags WHERE node_id=${row[0]};`);
+        await client.end();
+    } catch (err) {
+        console.error("Could not query PostgreSQL server for node sub elements.\nNow exiting program...");
+        process.exit(1);
+    }
+
+    for (const tagRow of result.rows) {
+        subElements += `<tag k="${tagRow[1]}" v="${tagRow[2]}"/>\n`;
+    }
+
+    let attributes = ""; 
+
+    attributes += ` id="${row[0]}" `;
+
+    if (row[1] !== null && row[2] !== null) {
+        attributes += ` lat="${row[1].toFixed(7)}" lon="${row[2].toFixed(7)} `;
+    }
+    
+    if (row[3] !== null) {
+        attributes += ` timestamp="${getTimeString(row[3])}" `;
+    }
+
+    if (row[4] !== null) {
+        attributes += ` uid="${row[4]}" `;
+    }
+
+    if (row[5] !== null) {
+        attributes += ` user="${row[5]}" `;
+    }
+
+    if (row[6] !== null) {
+        attributes += ` visible="${row[6]}" `;
+    }
+
+    if (row[7] !== null) {
+        attributes += ` version="${row[7]}" `;
+    }
+
+    if (row[8] !== null) {
+        attributes += ` changeset="${row[8]}" `;
+    }
+
+    if (result.rows.length === 0) {
+        writeStream.write(`<node${attributes}/>\n`);
+    } else {
+        writeStream.write(`<node${attributes}>\n${subElements}\n</node>\n`);
+    }
+
+    writeStream.write(output);
+    decrementPendingActions(pendingActions, writeStream);
+}
+
+async function writeWayXML(row, pool, writeStream, pendingActions) {
+    let subElements = "";
+    let client;
+    let result;
+
+    try {
+        client = await pool.connect();
+        tagResult = await client.query(`SELECT * FROM way_tags WHERE node_id=${row[0]};`);
+        ndResult = await client.query(`SELECT node_id FROM way_constituent_nodes WHERE way_id=${row[0]} ORDER BY node_sequence ASC`);
+        await client.end();
+    } catch (err) {
+        console.error("Could not query PostgreSQL server for way sub elements.\nNow exiting program...");
+        process.exit(1);
+    }
+
+    for (const ndRow of ndResult.rows) {
+        subElements += `<nd ref=${ndRow[0]}/>\n`;
+    }
+
+    for (const tagRow of tagResult.rows) {
+        subElements += `<tag k="${tagRow[1]}" v="${tagRow[2]}"/>\n`;
+    }
+
+    let attributes = ""; 
+
+    attributes += ` id="${row[0]}" `;
+
+    if (row[3] !== null) {
+        attributes += ` timestamp="${getTimeString(row[3])}" `;
+    }
+
+    if (row[4] !== null) {
+        attributes += ` uid="${row[4]}" `;
+    }
+
+    if (row[5] !== null) {
+        attributes += ` user="${row[5]}" `;
+    }
+
+    if (row[6] !== null) {
+        attributes += ` visible="${row[6]}" `;
+    }
+
+    if (row[7] !== null) {
+        attributes += ` version="${row[7]}" `;
+    }
+
+    if (row[8] !== null) {
+        attributes += ` changeset="${row[8]}" `;
+    }
+
+    if (result.rows.length === 0) {
+        writeStream.write(`<way${attributes}/>\n`);
+    } else {
+        writeStream.write(`<way${attributes}>\n${subElements}\n</way>\n`);
+    }
+
+    writeStream.write(output);
+    decrementPendingActions(pendingActions, writeStream);
+}
+
+async function writeRelationXML(row, pool, writeStream, pendingActions) {
+    let subElements = "";
+    let client;
+    let result;
+    const memberQuery = `WITH Combined AS  
+(SELECT member_sequence, node_id AS id, role, 'node' AS type FROM relation_constituent_nodes
+UNION ALL 
+SELECT member_sequence, way_id AS id, role, 'way' AS type FROM relation_constituent_ways)
+SELECT * FROM Combined ORDER BY member_sequence ASC;
+`;
+
+    try {
+        client = await pool.connect();
+        tagResult = await client.query(`SELECT * FROM relation_tags WHERE node_id=${row[0]};`);
+        memberResult = await client.query(memberQuery);
+        await client.end();
+    } catch (err) {
+        console.error("Could not query PostgreSQL server for way sub elements.\nNow exiting program...");
+        process.exit(1);
+    }
+
+    for (const memberRow of memberResult.rows) {
+        subElements += `<nd type="${row[3]}" ref="${row[0]}" role="${row[2]}"/>\n`;
+    }
+
+    for (const tagRow of tagResult.rows) {
+        subElements += `<tag k="${tagRow[1]}" v="${tagRow[2]}"/>\n`;
+    }
+
+    let attributes = ""; 
+
+    attributes += ` id="${row[0]}" `;
+
+    if (row[3] !== null) {
+        attributes += ` timestamp="${getTimeString(row[3])}" `;
+    }
+
+    if (row[4] !== null) {
+        attributes += ` uid="${row[4]}" `;
+    }
+
+    if (row[5] !== null) {
+        attributes += ` user="${row[5]}" `;
+    }
+
+    if (row[6] !== null) {
+        attributes += ` visible="${row[6]}" `;
+    }
+
+    if (row[7] !== null) {
+        attributes += ` version="${row[7]}" `;
+    }
+
+    if (row[8] !== null) {
+        attributes += ` changeset="${row[8]}" `;
+    }
+
+    if (result.rows.length === 0) {
+        writeStream.write(`<relation${attributes}/>\n`);
+    } else {
+        writeStream.write(`<relation${attributes}>\n${subElements}\n</relation>\n`);
+    }
+
+    writeStream.write(output);
+    decrementPendingActions(pendingActions, writeStream);
+}
+
+function saveAsXML(result, argv, pool) {
+    let writeStream;
+    let pendingActions = {actions: result.rows.length};
+
+    try {
+        writeStream = fs.createWriteStream(argv.output, {
+            encoding: "utf-8",
+            flag: "w"
+        });
+
+        writeStream.write('<osm version="0.6" generator="qastro">\n');
+    } catch (err) {
+        console.error("Failed attempt to open new output file and write the header.\nNow exiting the program...\n");
+        process.exit(1);
+    }
+
+    for (const row in result.rows) {
+        if (row[0] === "node") {
+            
+        }
+    }
+    
+    output += "</osm>\n";
+}
+
+function getSQLResults(sqlCode, argv) {
+    const poolConfig = {
+        host: argv.server,
+        user: argv.username,
+        max: 15,
+        port: argv.port,
+        password: argv.password
+    };
+
+    const queries = sqlCode.split(';').slice(0,-1);
+
+    const pool = new Pool(poolConfig);
+
+    (async () => {
+        try {
+            const client = await pool.connect();   
+        } catch (err) {
+            console.error("Could not get client from pool.\nExiting program now...\n");
+            process.exit(1);
+        }
+
+        let result;
+
+        for (let i = 0; i < queries.length; i++) {
+            try {
+                if (i === queries.length - 1) {
+                    result = client.query(queries[i]);
+                } else {
+                    client.query(queries[i]);
+                }
+            } catch (err) {
+                console.error("Could not submit SQL query.\nExiting program now...\n");
+            }
+        }
+
+        client.end();
+        
+        saveAsXML(result, argv, pool);
+    })();
+}
+
+function transpile(input, argv) {
+    console.log("Code is now being transpiled...\n");
+    let sqlCode = "";
+   
+    try {
+        sqlCode = parser.parse(input);
+    } catch (err) {
+        console.error(`Code could not be transpiled to SQL.\nThere may be errors in your code.\nProgram is now exiting...\n`);
+        process.exit(1);
+    }
+
+    console.log("SQL code has been generated...\n");
+    getSQLResults(sqlCode, argv);
+}
 
 function run(argv) {
+    fs.readFile(argv.input, 'utf-8', (err, data) => {
+        if (err) {
+            console.error(`Could not read file (${err})\nProgram is now exiting...\n`);
+            process.exit(1);
+        }
 
+        console.log("Code was read in.\n");
+        transpile(data, argv);
+    });
 }
 
 function sql(argv) {
@@ -15,7 +307,7 @@ function sql(argv) {
         }
         console.log("SQL:\n\n")
         console.log(parser.parse(data));
-    }) 
+    });
 }
 
 const argv = yargs(hideBin(process.argv))
