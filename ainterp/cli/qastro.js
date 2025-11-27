@@ -8,31 +8,32 @@ function getTimeString(date) {
     return date.toISOString().split('.')[0]+ 'Z';
 }
 
-function decrementPendingActions(pendingActions, writeStream) {
-    pendingActions.actions -= 1;
-    if (pendingActions.actions === 0) {
-        writeStream.write("</osm>\n");
-        writeStream.end();
-        console.log("Closing output... Entirety of file was written.");
-        console.log("Program ending...");
-    }
-}
-
-async function writeNodeXML(row, pool, writeStream, pendingActions) {
+async function writeRelationXML(result, row, pool, writeStream, elementsLeft) {
     let subElements = "";
     let client;
-    let result;
+    let tagResult, memberResult;
+    const memberQuery = `WITH Combined AS  
+(SELECT member_sequence, node_id AS id, role, 'node' AS type FROM relation_constituent_nodes
+UNION ALL 
+SELECT member_sequence, way_id AS id, role, 'way' AS type FROM relation_constituent_ways)
+SELECT * FROM Combined ORDER BY member_sequence ASC;
+`;
 
     try {
         client = await pool.connect();
-        result = await client.query(`SELECT * FROM node_tags WHERE node_id=${row[0]};`);
+        tagResult = await client.query(`SELECT * FROM relation_tags WHERE node_id=${row[0]};`);
+        memberResult = await client.query(memberQuery);
         await client.end();
     } catch (err) {
-        console.error("Could not query PostgreSQL server for node sub elements.\nNow exiting program...");
+        console.error("Could not query PostgreSQL server for relation sub elements.\nNow exiting program...");
         process.exit(1);
     }
 
-    for (const tagRow of result.rows) {
+    for (const memberRow of memberResult.rows) {
+        subElements += `<member type="${row[3]}" ref="${row[0]}" role="${row[2]}"/>\n`;
+    }
+
+    for (const tagRow of tagResult.rows) {
         subElements += `<tag k="${tagRow[1]}" v="${tagRow[2]}"/>\n`;
     }
 
@@ -40,10 +41,6 @@ async function writeNodeXML(row, pool, writeStream, pendingActions) {
 
     attributes += ` id="${row[0]}" `;
 
-    if (row[1] !== null && row[2] !== null) {
-        attributes += ` lat="${row[1].toFixed(7)}" lon="${row[2].toFixed(7)} `;
-    }
-    
     if (row[3] !== null) {
         attributes += ` timestamp="${getTimeString(row[3])}" `;
     }
@@ -69,19 +66,25 @@ async function writeNodeXML(row, pool, writeStream, pendingActions) {
     }
 
     if (result.rows.length === 0) {
-        writeStream.write(`<node${attributes}/>\n`);
+        writeStream.write(`<relation${attributes}/>\n`);
     } else {
-        writeStream.write(`<node${attributes}>\n${subElements}\n</node>\n`);
+        writeStream.write(`<relation${attributes}>\n${subElements}\n</relation>\n`);
     }
 
     writeStream.write(output);
-    decrementPendingActions(pendingActions, writeStream);
+
+    elementsLeft.relations -= 1;
+
+    if (elementsLeft.relations === 0) {
+        writeStream.end();
+        console.log("OSM XML finished exporting successfully.\n");
+    }
 }
 
-async function writeWayXML(row, pool, writeStream, pendingActions) {
+async function writeWayXML(result, row, pool, writeStream, elementsLeft) {
     let subElements = "";
     let client;
-    let result;
+    let tagResult, ndResult;
 
     try {
         client = await pool.connect();
@@ -136,35 +139,33 @@ async function writeWayXML(row, pool, writeStream, pendingActions) {
     }
 
     writeStream.write(output);
-    decrementPendingActions(pendingActions, writeStream);
+    elementsLeft.ways -= 1;
+
+    if (elementsLeft.relations === 0) {
+        for (const r of result.rows) {
+            if (r[9] === "relation") {
+                writeRelationXML(result, r, pool, writeStream, elementsLeft);
+            }
+        }
+    }
 }
 
-async function writeRelationXML(row, pool, writeStream, pendingActions) {
+
+async function writeNodeXML(result, row, pool, writeStream, elementsLeft) {
     let subElements = "";
     let client;
-    let result;
-    const memberQuery = `WITH Combined AS  
-(SELECT member_sequence, node_id AS id, role, 'node' AS type FROM relation_constituent_nodes
-UNION ALL 
-SELECT member_sequence, way_id AS id, role, 'way' AS type FROM relation_constituent_ways)
-SELECT * FROM Combined ORDER BY member_sequence ASC;
-`;
+    let tagResult;
 
     try {
         client = await pool.connect();
-        tagResult = await client.query(`SELECT * FROM relation_tags WHERE node_id=${row[0]};`);
-        memberResult = await client.query(memberQuery);
+        tagResult = await client.query(`SELECT * FROM node_tags WHERE node_id=${row[0]};`);
         await client.end();
     } catch (err) {
-        console.error("Could not query PostgreSQL server for way sub elements.\nNow exiting program...");
+        console.error("Could not query PostgreSQL server for node sub elements.\nNow exiting program...");
         process.exit(1);
     }
 
-    for (const memberRow of memberResult.rows) {
-        subElements += `<nd type="${row[3]}" ref="${row[0]}" role="${row[2]}"/>\n`;
-    }
-
-    for (const tagRow of tagResult.rows) {
+    for (const tagRow of result.rows) {
         subElements += `<tag k="${tagRow[1]}" v="${tagRow[2]}"/>\n`;
     }
 
@@ -172,6 +173,10 @@ SELECT * FROM Combined ORDER BY member_sequence ASC;
 
     attributes += ` id="${row[0]}" `;
 
+    if (row[1] !== null && row[2] !== null) {
+        attributes += ` lat="${row[1].toFixed(7)}" lon="${row[2].toFixed(7)} `;
+    }
+    
     if (row[3] !== null) {
         attributes += ` timestamp="${getTimeString(row[3])}" `;
     }
@@ -197,18 +202,26 @@ SELECT * FROM Combined ORDER BY member_sequence ASC;
     }
 
     if (result.rows.length === 0) {
-        writeStream.write(`<relation${attributes}/>\n`);
+        writeStream.write(`<node${attributes}/>\n`);
     } else {
-        writeStream.write(`<relation${attributes}>\n${subElements}\n</relation>\n`);
+        writeStream.write(`<node${attributes}>\n${subElements}\n</node>\n`);
     }
 
     writeStream.write(output);
-    decrementPendingActions(pendingActions, writeStream);
+    elementsLeft.nodes -= 1;
+
+    if (elementsLeft.nodes === 0) {
+        for (const r of result.rows) {
+            if (r[9] === "way") {
+                writeWayXML(result, r, pool, writeStream, elementsLeft);
+            }
+        }
+    }
 }
 
 function saveAsXML(result, argv, pool) {
     let writeStream;
-    let pendingActions = {actions: result.rows.length};
+    let elementsLeft = {};
 
     try {
         writeStream = fs.createWriteStream(argv.output, {
@@ -222,13 +235,26 @@ function saveAsXML(result, argv, pool) {
         process.exit(1);
     }
 
-    for (const row in result.rows) {
-        if (row[0] === "node") {
-            
-        }
+    elementsLeft.nodes = result.rows.reduce((acc, row) => {
+        return acc + (row[9] === "node") ? 1: 0;
     }
-    
-    output += "</osm>\n";
+    ,0);
+
+    elementsLeft.ways = result.rows.reduce((acc, row) => {
+        return acc + (row[9] === "way") ? 1: 0;
+    }
+    ,0);
+
+    elementsLeft.relations = result.rows.reduce((acc, row) => {
+        return acc + (row[9] === "relation") ? 1: 0;
+    }
+    ,0);
+
+    for (const row of result.rows) {
+        if (row[9] === "node") {
+            writeNodeXML(result, row, pool, writeStream, elementsLeft);
+        } 
+    }    
 }
 
 function getSQLResults(sqlCode, argv) {
@@ -365,4 +391,5 @@ const argv = yargs(hideBin(process.argv))
         })
         .help()
         .alias('help', 'h');
-    }, sql).parse();
+    }, sql).alias('help', 'h')
+    .parse();
