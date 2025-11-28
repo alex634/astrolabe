@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much more simple for average people to use. Most functionality is provided through built-in methods rather than using complex syntatical features. As of now, this is a incomplete language in that it is missing many built-in methods and some syntactical feattures, but it is functional. OSM data can currently be returned.
+This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much more simple for average people to use. Most functionality is provided through built-in methods rather than using complex syntatical features. As of now, this is a incomplete language in that it is missing many built-in methods and some syntactical features, but it is functional. OSM data can currently be returned.
 
 ## Usage
 
@@ -13,11 +13,17 @@ Before the query interpreter can be used, a PostgreSQL database must be set up a
 Once suitable OSM data is ready, you may import it with a Python utility function provided in the utils folder (osmpsgldr.py). You only need to download the Python file to import, the rest of the repository does not need to be downloaded. Many systems will come with this, but you may have to install `psycopg2` with pip to be able to interface with a PostgreSQL server. The Python program will tell you what arguments to use if called with nothing, but the arguments are provided here for reference:
 
 `usage: osmpsgldr.py [-h] -i INPUT -s HOST -p PORT -d DATABASE -w PASSWORD -u USER`
+
 **INPUT**: OSM file to load into the database
+
 **HOST**: The host in which the PostgreSQL database is being hosted
+
 **PORT**: The port that the PostgreSQL server is bound to
+
 **DATABASE**: The database where you want to store the tables
+
 **PASSWORD**: The password for the PostgreSQL user
+
 **USER**: The username for the PostgreSQL user
 
 Before you can import any data, you must have access to a PostgreSQL server or you must have already configured and set one up locally.
@@ -34,7 +40,7 @@ qastro provides two subcommands: `sql` and `run`. Use the `-h` flag to get more 
 
 Given that the language is not fully complete, there are not many syntax elements that are necessary to learn.
 
-**EXAMPLE CODE:**
+**Example Code:**
 ```
 var test = all.bbox(42.533761,1.582267,42.536797,1.586194)
 test.output()
@@ -47,25 +53,25 @@ test.output()
 The first line is a variable declaration:
 `var test = all.bbox(42.533761,1.582267,42.536797,1.586194)`
 
-All variable definitions start with "var" followed by a label. The label must follow this pattern: \[a-zA-Z\]\[a-zA-Z0-9\]\*. After the label, an "=" symbol must be placed. The variable assignment must be a method call on a variable. At this current time, there are no exceptions to this.
+All variable definitions start with "var" followed by a label. The label must follow this pattern: **\[a-zA-Z\]\[a-zA-Z0-9\]\***. After the label, an "=" symbol must be placed. The variable assignment must be a method call on a variable. At this current time, there are no exceptions to this.
 
 `.bbox(42.533761,1.582267,42.536797,1.586194)` is a method call. You may have noticed that `bbox` is being called on a variable that has not already been defined. The reason for this is that the "all" variable is predefined in all programs. It is the set of all nodes, ways, and relations in a database. What is happening here is that we are discarding all elements not within a geographic location. 
 
 A method must be called on a variable or chained to another method. Not all methods take parameters, but if they do, they can either be a string, a number, a distance, or the output of a method call on a variable.
 
 **Examples:**
-`string` - "Hello World"
+`string` => "Hello World"
 Notes:
 - A backslash must be escaped using a backslash for a literal backslash.
 - A quote must be escaped by a backslash for a literal quote.
 - Carriage returns and newlines must be escaped as follows: "\\r" and "\\n"
 
-`number` - -23409.23480
+`number` => -23409.23480
 Notes:
 - A number can be any floating point value.
 - A number can have any sign.
 
-`distance` - 514.92km
+`distance` => 514.92km
 Notes:
 - A distance is always a floating point value with a unit concatenated to the end
 - The following units are allowed: km, m, mi, ft
