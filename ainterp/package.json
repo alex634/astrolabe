@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin" : {
+    "qastro": "./cli/qastro.js"
+  },
   "scripts": {
     "build:parser": "peggy parser/grammar.pegjs --format commonjs -o parser/parser.js",
     "test:parser": "node ./test/getSql.js"

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const yargs = require('yargs');
 const {hideBin} = require('yargs/helpers');
 const parser = require('../parser/parser.js');
