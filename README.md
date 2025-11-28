@@ -2,13 +2,13 @@
 
 ## Introduction
 
-This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much more simple for average people to use. Most functionality is provided through built-in methods rather than using complex syntatical features. As of now, this is a incomplete language in that it is missing many built-in methods and some syntactical features, but it is functional. OSM data can currently be returned.
+This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much more simple for average people to use. Most functionality is provided through built-in methods rather than using complex syntactical features. As of now, this is an incomplete language in that it is missing many built-in methods and some syntactical features, but it is functional. OSM data can currently be returned.
 
 ## Usage
 
 ### Setting up the Database
 
-Before the query interpreter can be used, a PostgreSQL database must be set up and loaded with OSM data. Since the full data set for OSM is incredibly large, it is suggested to use a small region. You can access specific regions from [Geofabrik.de](https://download.geofabrik.de/). Geofabrik's downloads are compressed, so it is suggest to use osmconvert to convert from `.osm.pbf` to `.osm` format. If it is necessary to combine two or more regions, it is also suggested to use `osmium`, specifically the `merge` subcommand.
+Before the query interpreter can be used, a PostgreSQL database must be set up and loaded with OSM data. Since the full data set for OSM is incredibly large, it is suggested to use a small region. You can access specific regions from [Geofabrik.de](https://download.geofabrik.de/). Geofabrik's downloads are compressed, so it is suggested to use osmconvert to convert from `.osm.pbf` to `.osm` format. If it is necessary to combine two or more regions, it is also suggested to use `osmium`, specifically the `merge` subcommand.
 
 Once suitable OSM data is ready, you may import it with a Python utility function provided in the utils folder (osmpsgldr.py). You only need to download the Python file to import, the rest of the repository does not need to be downloaded. Many systems will come with this, but you may have to install `psycopg2` with pip to be able to interface with a PostgreSQL server. The Python program will tell you what arguments to use if called with nothing, but the arguments are provided here for reference:
 
@@ -34,7 +34,7 @@ Importing may take a long time. You will be provided with percentages showing pr
 
 To use the interpreter, you must install the interpreter package globally. To do this, run `npm install -g ainterp`. After having done this, you should now have access to a command named `qastro`. This interprets your code. It should be noted that this has terrible error reporting at the moment, but it does work.
 
-qastro provides two subcommands: `sql` and `run`. Use the `-h` flag to get more information about usage. You probably will not ever need to use the sql subcommand. The intent of this is to show what SQL is executed on the backend for a given piece of code. The run subcommand takes two positional inputs: the input Astrolabe query file followed by the OSM XML output filename. In addition, you must provide information on how to access the SQL server through various flags (host, credentials, etc...). You may find out more about these flags by running `qastro run -h`.
+qastro provides two subcommands: `sql` and `run`. Use the `-h` flag to get more information about usage. You probably will not ever need to use the sql subcommand. The intent of this is to show what SQL is executed on the backend for a given piece of code. The run subcommand takes two positional arguments: the input Astrolabe query file followed by the OSM XML output filename. In addition, you must provide information on how to access the SQL server through various flags (host, credentials, etc...). You may find out more about these flags by running `qastro run -h`.
 
 ### Writing Code
 
@@ -107,47 +107,46 @@ There are currently 5 methods:
 The grammar provided is in the format used by Peggy.js:
 
 ```
-start =
-    stmts:statements !.
+start = statements !.
 
-statements = stmts:(statement)* 
+statements = (statement)* 
 
-statement = expression:expression_statement
-/ declaration:declaration_statement {
-/ comment:comment_statement {
-/ blank:blank_statement {
+statement = expression_statement
+/ declaration_statement {
+/ comment_statement {
+/ blank_statement {
 
 comment_statement = whitespace* "#" [^\r\n]* line_ending
 
 blank_statement = whitespace* line_ending
 
-declaration_statement = whitespace* "var" whitespace+ lbl:label whitespace* "=" whitespace* expr:expression whitespace* line_ending
+declaration_statement = whitespace* "var" whitespace+ label whitespace* "=" whitespace* expression whitespace* line_ending
 
-expression_statement = whitespace* expr:expression whitespace* line_ending
+expression_statement = whitespace* expression whitespace* line_ending
 
-parameters = whitespace* firstParm:expression whitespace*  restParms:("," whitespace* expression whitespace*)* 
+parameters = whitespace* expression whitespace* ("," whitespace* expression whitespace*)* 
 / whitespace*
 
 
-expression = method: method_call 
-/ ltrl:literal
+expression = method_call 
+/ literal
 
-method_call = variable:label calls:("." label "(" parameters ")")* 
+method_call = label ("." label "(" parameters ")")* 
 
 
-literal = string:string_literal 
-/ distance:distance_literal 
-/ number:number_literal 
+literal = string_literal 
+/ distance_literal 
+/ number_literal 
 
-string_literal = '"' string:([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' 
+string_literal = '"' ([^\r\n\\"] / '\\\\' / '\\"' / '\\r' / '\\n')* '"' 
 
-distance_literal = number:number_literal unit:("km" / "m" / "mi" / "ft") 
+distance_literal = number_literal ("km" / "m" / "mi" / "ft") 
 
-number_literal = sign:"-"? leadingZero:"0"? "." postDecimalDigits:[0-9]* 
-/ sign:"-"? leadingDigit:[1-9] remainingDigits:[0-9]* "." postDecimalDigits:[0-9]* 
-/ sign:"-"? leadingDigit:[1-9] remainingDigits:[0-9]* 
+number_literal = "-"? "0"? "." [0-9]* 
+/ sign:"-"? [1-9] [0-9]* "." [0-9]* 
+/ sign:"-"? [1-9] [0-9]* 
 
-label = leadingChar:[a-zA-Z] remainingChars:[a-zA-Z0-9]*
+label = [a-zA-Z] [a-zA-Z0-9]*
 
 whitespace = [ \t]
 
