@@ -2,15 +2,15 @@
 
 ## Introduction
 
-This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much more simple for average people to use. Most functionality is provided through built-in methods rather than using complex syntactical features. As of now, this is an incomplete language in that it is missing many built-in methods and some syntactical features, but it is functional. OSM data can currently be returned.
+This is a geospatial querying language built to query OSM XML data. OverpassQL already exists for this purpose, but the syntax is overly complicated to achieve simple things. The goal of this language is to be much simpler for average people to use. Most functionality is provided through built-in methods rather than using complex syntactical features. As of now, this is an incomplete language in that it is missing many built-in methods and some syntactical features, but it is functional. OSM data can currently be returned.
 
 ## Usage
 
 ### Setting up the Database
 
-Before the query interpreter can be used, a PostgreSQL database must be set up and loaded with OSM data. Since the full data set for OSM is incredibly large, it is suggested to use a small region. You can access specific regions from [Geofabrik.de](https://download.geofabrik.de/). Geofabrik's downloads are compressed, so it is suggested to use osmconvert to convert from `.osm.pbf` to `.osm` format. If it is necessary to combine two or more regions, it is also suggested to use `osmium`, specifically the `merge` subcommand.
+Before the query interpreter can be used, a PostgreSQL database must be set up and loaded with OSM data. Since the full dataset for OSM is incredibly large, it is suggested to use a small region. You can access specific regions from [Geofabrik.de](https://download.geofabrik.de/). Geofabrik's downloads are compressed, so it is suggested to use osmconvert to convert from `.osm.pbf` to `.osm` format. If it is necessary to combine two or more regions, it is also suggested to use `osmium`, specifically the `merge` subcommand.
 
-Once suitable OSM data is ready, you may import it with a Python utility function provided in the utils folder (osmpsgldr.py). You only need to download the Python file to import, the rest of the repository does not need to be downloaded. Many systems will come with this, but you may have to install `psycopg2` with pip to be able to interface with a PostgreSQL server. The Python program will tell you what arguments to use if called with nothing, but the arguments are provided here for reference:
+Once suitable OSM data is ready, you may import it with a Python utility function provided in the utils folder (osmpsgldr.py). You only need to download the Python file to import. The rest of the repository does not need to be downloaded. Many Linux systems will come with this, but you may have to install `psycopg2` with pip to be able to interface with a PostgreSQL server. The Python program will tell you what arguments to use if called with nothing, but the arguments are provided here for reference:
 
 `usage: osmpsgldr.py [-h] -i INPUT -s HOST -p PORT -d DATABASE -w PASSWORD -u USER`
 
@@ -73,7 +73,7 @@ Notes:
 
 `distance` => 514.92km
 Notes:
-- A distance is always a floating point value with a unit concatenated to the end
+- A distance is always a floating point value with a unit concatenated to the end.
 - The following units are allowed: km, m, mi, ft
 
 **Line Two**
@@ -112,9 +112,9 @@ start = statements !.
 statements = (statement)* 
 
 statement = expression_statement
-/ declaration_statement {
-/ comment_statement {
-/ blank_statement {
+/ declaration_statement
+/ comment_statement
+/ blank_statement
 
 comment_statement = whitespace* "#" [^\r\n]* line_ending
 
